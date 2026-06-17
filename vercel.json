@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/update-scores",
-      "schedule": "*/3 * * * *"
+      "schedule": "0 2 * * *"
     }
   ],
   "functions": {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
-  UserIcon, BallIcon, CheckIcon, XIcon, PlusIcon, ChipIcon, SettingsIcon
+  UserIcon, BallIcon, CheckIcon, XIcon, PlusIcon, ChipIcon, SettingsIcon, WorldIcon
 } from '../assets/Icons'
 
 // ============================================
@@ -170,6 +170,8 @@ export default function AdminPage() {
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [resultModal, setResultModal] = useState(null)
   const [matchFilter, setMatchFilter] = useState('all')
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -189,6 +191,24 @@ export default function AdminPage() {
   async function setMatchLive(matchId) {
     await supabase.from('matches').update({ status: 'live', betting_closed: true }).eq('id', matchId)
     fetchAll()
+  }
+
+  async function handleSyncScores() {
+    setSyncing(true)
+    setSyncMsg('')
+    try {
+      const res = await fetch('/api/update-scores')
+      const data = await res.json()
+      setSyncMsg(data.updated > 0
+        ? `Actualizado: ${data.updated} partido(s) sincronizado(s)`
+        : 'Sin cambios — los marcadores ya estan al dia'
+      )
+      fetchAll()
+    } catch {
+      setSyncMsg('Error al conectar con la API de marcadores')
+    }
+    setSyncing(false)
+    setTimeout(() => setSyncMsg(''), 5000)
   }
 
   const filteredMatches = matchFilter === 'all' ? matches
@@ -211,8 +231,28 @@ export default function AdminPage() {
   return (
     <div className="page-content">
       <div className="page-header">
-        <h1 className="page-title">Panel de Administracion</h1>
-        <p className="page-subtitle">Control total del sistema — {profile?.username}</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 className="page-title">Panel de Administracion</h1>
+            <p className="page-subtitle">Control total del sistema — {profile?.username}</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handleSyncScores}
+              disabled={syncing}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <WorldIcon size={15} style={syncing ? { animation: 'spin 1s linear infinite' } : {}} />
+              {syncing ? 'Sincronizando...' : 'Actualizar marcadores ESPN'}
+            </button>
+            {syncMsg && (
+              <span style={{ fontSize: '0.75rem', color: syncMsg.startsWith('Error') ? 'var(--red)' : 'var(--green)' }}>
+                {syncMsg}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="admin-grid">
