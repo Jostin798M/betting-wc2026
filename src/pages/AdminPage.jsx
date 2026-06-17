@@ -665,7 +665,7 @@ export default function AdminPage() {
                                 <span className={`badge badge-${m.status}`}>
                                   {m.status === 'upcoming' ? 'Proximo' : m.status === 'live' ? 'En vivo' : 'Finalizado'}
                                 </span>
-                                {m.betting_closed && m.status !== 'finished' && (
+                                {m.betting_closed && (
                                   <span style={{ fontSize: '0.65rem', color: 'var(--red)', fontWeight: 600 }}>apuestas cerradas</span>
                                 )}
                               </div>
@@ -675,12 +675,12 @@ export default function AdminPage() {
                             </td>
                             <td>
                               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                                {m.status === 'upcoming' && (
+                                {m.status === 'upcoming' && !m.betting_closed && (
                                   <button className="btn btn-sm btn-outline" onClick={() => setMatchLive(m.id)}>
                                     En vivo
                                   </button>
                                 )}
-                                {m.betting_closed && m.status !== 'finished' && (
+                                {m.betting_closed && (
                                   <button className="btn btn-sm btn-outline"
                                     style={{ color: 'var(--green)', borderColor: 'rgba(34,197,94,0.35)' }}
                                     onClick={() => reopenBetting(m.id)}>
