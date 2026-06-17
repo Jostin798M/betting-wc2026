@@ -37,7 +37,7 @@ function formatTimeEC(isoStr) {
 export default function MatchCard({ match, userBet, onBet }) {
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished'
-  const canBet = match.status === 'upcoming' && !match.betting_closed && new Date(match.match_datetime) > new Date()
+  const canBet = match.status === 'upcoming' && !match.betting_closed
 
   const phaseLabel = match.phase === 'group'
     ? `Grupo ${match.group_name}`

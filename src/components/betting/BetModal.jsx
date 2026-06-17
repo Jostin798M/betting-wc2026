@@ -22,6 +22,14 @@ export default function BetModal({ match, onClose, onSuccess }) {
   const potentialWin = numAmount * 2
   const valid = betType && numAmount > 0 && numAmount <= balance
 
+  function whyDisabled() {
+    if (!betType) return 'Selecciona una prediccion'
+    if (numAmount <= 0) return 'Ingresa el monto a apostar'
+    if (numAmount > balance) return 'Monto supera tu balance'
+    return null
+  }
+  const disabledReason = whyDisabled()
+
   function setQuick(val) {
     if (val === 'all') setAmount(String(Math.floor(balance)))
     else setAmount(String(Math.min(val, Math.floor(balance))))
@@ -159,17 +167,28 @@ export default function BetModal({ match, onClose, onSuccess }) {
               </div>
             )}
 
-            {error && <p className="form-error" style={{ marginBottom: 12 }}>{error}</p>}
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 'var(--r-md)', padding: '10px 14px', marginBottom: 12, fontSize: '0.82rem', color: 'var(--red)' }}>
+                {error}
+              </div>
+            )}
 
-            <div className="modal-footer">
-              <button className="btn btn-outline btn-block" onClick={onClose}>Cancelar</button>
-              <button
-                className="btn btn-gold btn-block"
-                onClick={handleConfirm}
-                disabled={!valid || loading}
-              >
-                {loading ? <><div className="spinner" style={{width:16,height:16,borderWidth:2}} /> Procesando</> : 'Confirmar apuesta'}
-              </button>
+            <div className="modal-footer" style={{ flexDirection: 'column', gap: 8 }}>
+              {disabledReason && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
+                  {disabledReason}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                <button className="btn btn-outline btn-block" onClick={onClose}>Cancelar</button>
+                <button
+                  className="btn btn-gold btn-block"
+                  onClick={handleConfirm}
+                  disabled={!valid || loading}
+                >
+                  {loading ? <><div className="spinner" style={{width:16,height:16,borderWidth:2}} /> Procesando</> : 'Confirmar apuesta'}
+                </button>
+              </div>
             </div>
           </>
         )}
