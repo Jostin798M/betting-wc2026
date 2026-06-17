@@ -92,13 +92,20 @@ function SetResultModal({ match, onClose, onSuccess }) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const { error: rpcErr } = await supabase.rpc('settle_match_bets', {
+    const { data, error: rpcErr } = await supabase.rpc('settle_match_bets', {
       p_match_id: match.id,
       p_team1_score: parseInt(s1, 10),
       p_team2_score: parseInt(s2, 10),
     })
     setLoading(false)
-    if (rpcErr) { setError(rpcErr.message); return }
+    if (rpcErr) {
+      setError(`Error al liquidar: ${rpcErr.message}`)
+      return
+    }
+    if (data && !data.success) {
+      setError(`Error: ${data.error || 'No se pudo liquidar'}`)
+      return
+    }
     onSuccess?.()
     onClose()
   }
