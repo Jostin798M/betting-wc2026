@@ -156,42 +156,38 @@ function SetResultModal({ match, onClose, onSuccess }) {
 // ============================================
 // ADJUST BALANCE MODAL
 // ============================================
-function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
-  const [mode, setMode] = useState('manual') // 'manual' | 'bet'
-  const [selectedBetId, setSelectedBetId] = useState('')
-  const [outcome, setOutcome] = useState('won') // 'won' | 'lost'
+function AdjustBalanceModal({ user, matches, onClose, onSuccess }) {
+  const [mode, setMode] = useState('retro') // 'manual' | 'retro'
+  // retro mode
+  const [selectedMatchId, setSelectedMatchId] = useState('')
+  const [betType, setBetType] = useState('') // 'team1_win' | 'draw' | 'team2_win'
+  const [retroAmount, setRetroAmount] = useState('')
+  // manual mode
   const [manualAmount, setManualAmount] = useState('')
   const [manualDesc, setManualDesc] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedBet = userBets.find(b => b.id === selectedBetId)
-  const selectedMatch = selectedBet ? matches.find(m => m.id === selectedBet.match_id) : null
+  const finishedMatches = matches.filter(m => m.status === 'finished')
+  const selectedMatch = finishedMatches.find(m => m.id === selectedMatchId)
 
-  function betLabel(bet) {
-    const m = matches.find(x => x.id === bet.match_id)
-    const matchName = m ? `${m.team1} vs ${m.team2}` : 'Partido desconocido'
-    const predLabel = bet.bet_type === 'draw' ? 'Empate'
-      : bet.bet_type === 'team1_win' ? `Gana ${m?.team1 || '?'}`
-      : `Gana ${m?.team2 || '?'}`
-    const statusLabel = bet.status === 'pending' ? 'pendiente' : bet.status === 'won' ? 'ganada' : 'perdida'
-    return `${matchName} — ${predLabel} (${Number(bet.amount).toFixed(0)} fichas, ${statusLabel})`
+  function getMatchResult(m) {
+    if (!m) return null
+    if (m.team1_score > m.team2_score) return 'team1_win'
+    if (m.team1_score < m.team2_score) return 'team2_win'
+    return 'draw'
   }
 
-  function betAmountForOutcome() {
-    if (!selectedBet) return 0
-    return outcome === 'won' ? Number(selectedBet.potential_win) : 0
-  }
+  const matchResult = getMatchResult(selectedMatch)
+  const retroWon = betType && matchResult ? betType === matchResult : null
+  const retroAmountNum = parseFloat(retroAmount) || 0
 
-  function buildDescription() {
-    if (mode === 'bet' && selectedBet && selectedMatch) {
-      const predLabel = selectedBet.bet_type === 'draw' ? 'Empate'
-        : selectedBet.bet_type === 'team1_win' ? `Gana ${selectedMatch.team1}`
-        : `Gana ${selectedMatch.team2}`
-      if (outcome === 'won') return `Apuesta ganada: ${selectedMatch.team1} vs ${selectedMatch.team2} — ${predLabel}`
-      return `Apuesta perdida: ${selectedMatch.team1} vs ${selectedMatch.team2} — ${predLabel}`
-    }
-    return manualDesc || 'Ajuste manual de balance'
+  function predLabel(type, m) {
+    if (!m) return ''
+    if (type === 'draw') return 'Empate'
+    if (type === 'team1_win') return `Gana ${m.team1}`
+    return `Gana ${m.team2}`
   }
 
   async function handleSubmit(e) {
@@ -199,46 +195,84 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
     setError('')
     setLoading(true)
     try {
-      let delta = 0
-      let txType = 'admin_adjustment'
-      let description = buildDescription()
-      let relatedBetId = null
-      let matchInfo = null
+      let currentBalance = Number(user.chips_balance)
 
-      if (mode === 'bet') {
-        if (!selectedBet) throw new Error('Selecciona una apuesta')
-        delta = betAmountForOutcome()
-        relatedBetId = selectedBet.id
-        txType = outcome === 'won' ? 'bet_won' : 'bet_lost'
-        if (selectedMatch) matchInfo = `${selectedMatch.team1} vs ${selectedMatch.team2}`
+      if (mode === 'retro') {
+        if (!selectedMatch) throw new Error('Selecciona un partido')
+        if (!betType) throw new Error('Selecciona el tipo de apuesta')
+        if (retroAmountNum <= 0) throw new Error('Ingresa un monto valido')
 
-        // Actualizar estado de la apuesta
-        await supabase.from('bets').update({ status: outcome, settled_at: new Date().toISOString() }).eq('id', selectedBet.id)
+        const matchInfo = `${selectedMatch.team1} vs ${selectedMatch.team2}`
+        const pred = predLabel(betType, selectedMatch)
+        const won = betType === matchResult
+        const potentialWin = retroAmountNum * 2
+
+        // 1. Insertar bet record
+        const { data: betData, error: betErr } = await supabase.from('bets').insert({
+          user_id: user.id,
+          match_id: selectedMatch.id,
+          bet_type: betType,
+          amount: retroAmountNum,
+          status: won ? 'won' : 'lost',
+          potential_win: potentialWin,
+          settled_at: new Date().toISOString(),
+        }).select().single()
+        if (betErr) throw new Error(betErr.message)
+
+        const betId = betData.id
+
+        // 2. Transaccion: apuesta colocada (descuenta)
+        const balAfterPlace = currentBalance - retroAmountNum
+        await supabase.from('transactions').insert({
+          user_id: user.id,
+          amount: -retroAmountNum,
+          type: 'bet_placed',
+          description: `Apuesta retroactiva: ${matchInfo} — ${pred}`,
+          balance_after: balAfterPlace,
+          related_bet_id: betId,
+          match_info: matchInfo,
+        })
+
+        let finalBalance = balAfterPlace
+
+        // 3. Si gano: transaccion de premio
+        if (won) {
+          finalBalance = balAfterPlace + potentialWin
+          await supabase.from('transactions').insert({
+            user_id: user.id,
+            amount: potentialWin,
+            type: 'bet_won',
+            description: `Apuesta ganada: ${matchInfo} — ${pred}`,
+            balance_after: finalBalance,
+            related_bet_id: betId,
+            match_info: matchInfo,
+          })
+        }
+
+        // 4. Actualizar balance
+        const { error: balErr } = await supabase.from('profiles')
+          .update({ chips_balance: finalBalance, updated_at: new Date().toISOString() })
+          .eq('id', user.id)
+        if (balErr) throw new Error(balErr.message)
+
       } else {
-        const parsed = parseFloat(manualAmount)
-        if (isNaN(parsed) || parsed === 0) throw new Error('Ingresa un monto valido (puede ser negativo para descontar)')
-        delta = parsed
+        // Manual
+        const delta = parseFloat(manualAmount)
+        if (isNaN(delta) || delta === 0) throw new Error('Ingresa un monto valido (negativo para descontar)')
+        const newBalance = currentBalance + delta
+        const { error: balErr } = await supabase.from('profiles')
+          .update({ chips_balance: newBalance, updated_at: new Date().toISOString() })
+          .eq('id', user.id)
+        if (balErr) throw new Error(balErr.message)
+        const { error: txErr } = await supabase.from('transactions').insert({
+          user_id: user.id,
+          amount: delta,
+          type: 'admin_adjustment',
+          description: manualDesc || 'Ajuste manual de balance',
+          balance_after: newBalance,
+        })
+        if (txErr) throw new Error(txErr.message)
       }
-
-      const newBalance = Number(user.chips_balance) + delta
-
-      // Actualizar balance del usuario
-      const { error: balErr } = await supabase.from('profiles')
-        .update({ chips_balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
-      if (balErr) throw new Error(balErr.message)
-
-      // Insertar transaccion
-      const { error: txErr } = await supabase.from('transactions').insert({
-        user_id: user.id,
-        amount: delta,
-        type: txType,
-        description,
-        balance_after: newBalance,
-        related_bet_id: relatedBetId,
-        match_info: matchInfo,
-      })
-      if (txErr) throw new Error(txErr.message)
 
       onSuccess?.()
       onClose()
@@ -247,9 +281,6 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
     }
     setLoading(false)
   }
-
-  const pendingBets = userBets.filter(b => b.status === 'pending')
-  const allBets = userBets
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -271,22 +302,20 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
           </span>
         </div>
 
-        {/* Modo */}
+        {/* Selector de modo */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
           {[
+            { key: 'retro', label: 'Apuesta retroactiva' },
             { key: 'manual', label: 'Ajuste manual' },
-            { key: 'bet', label: 'Por apuesta' },
           ].map(({ key, label }) => (
-            <button key={key} type="button"
-              onClick={() => setMode(key)}
+            <button key={key} type="button" onClick={() => setMode(key)}
               style={{
                 padding: '10px', borderRadius: 'var(--r-md)', fontWeight: 700,
                 fontSize: '0.82rem', cursor: 'pointer',
                 border: `1px solid ${mode === key ? 'rgba(240,180,41,0.5)' : 'var(--border)'}`,
                 background: mode === key ? 'var(--gold-glow)' : 'var(--bg-card-2)',
                 color: mode === key ? 'var(--gold)' : 'var(--text-2)',
-              }}
-            >
+              }}>
               {label}
             </button>
           ))}
@@ -294,6 +323,128 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+          {/* ---- MODO RETROACTIVO ---- */}
+          {mode === 'retro' && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Partido finalizado ({finishedMatches.length} disponibles)</label>
+                <select className="form-input" value={selectedMatchId}
+                  onChange={e => { setSelectedMatchId(e.target.value); setBetType('') }} required>
+                  <option value="">— Seleccionar partido —</option>
+                  {finishedMatches.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.team1} {m.team1_score} – {m.team2_score} {m.team2} ({m.group_name || m.phase})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedMatch && (
+                <>
+                  {/* Resultado del partido */}
+                  <div style={{ background: 'var(--bg-0)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 8, fontWeight: 600 }}>RESULTADO OFICIAL</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <span className={`fi fi-${selectedMatch.team1_code}`} style={{ width: 32, height: 22, backgroundSize: 'cover', borderRadius: 3, display: 'block', margin: '0 auto 4px' }} />
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{selectedMatch.team1}</span>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <span style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--gold)', lineHeight: 1 }}>
+                          {selectedMatch.team1_score} — {selectedMatch.team2_score}
+                        </span>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 2 }}>
+                          {matchResult === 'team1_win' ? `Gano ${selectedMatch.team1}`
+                            : matchResult === 'team2_win' ? `Gano ${selectedMatch.team2}`
+                            : 'Empate'}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <span className={`fi fi-${selectedMatch.team2_code}`} style={{ width: 32, height: 22, backgroundSize: 'cover', borderRadius: 3, display: 'block', margin: '0 auto 4px' }} />
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{selectedMatch.team2}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tipo de apuesta */}
+                  <div className="form-group">
+                    <label className="form-label">El usuario aposto a...</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                      {[
+                        { key: 'team1_win', label: `Gana\n${selectedMatch.team1}` },
+                        { key: 'draw', label: 'Empate' },
+                        { key: 'team2_win', label: `Gana\n${selectedMatch.team2}` },
+                      ].map(({ key, label }) => {
+                        const isCorrect = key === matchResult
+                        const isSelected = betType === key
+                        return (
+                          <button key={key} type="button" onClick={() => setBetType(key)}
+                            style={{
+                              padding: '10px 6px', borderRadius: 'var(--r-md)',
+                              fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer',
+                              textAlign: 'center', whiteSpace: 'pre-line', lineHeight: 1.3,
+                              border: `1px solid ${isSelected
+                                ? isCorrect ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.5)'
+                                : 'var(--border)'}`,
+                              background: isSelected
+                                ? isCorrect ? 'var(--green-bg)' : 'rgba(239,68,68,0.08)'
+                                : 'var(--bg-card-2)',
+                              color: isSelected
+                                ? isCorrect ? 'var(--green)' : 'var(--red)'
+                                : 'var(--text-2)',
+                            }}>
+                            {label}
+                            {isCorrect && <div style={{ fontSize: '0.65rem', color: 'var(--green)', marginTop: 3 }}>✓ correcto</div>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Monto */}
+                  <div className="form-group">
+                    <label className="form-label">Monto apostado (fichas)</label>
+                    <input type="number" className="form-input" required min="1" step="1"
+                      placeholder="ej: 50"
+                      value={retroAmount} onChange={e => setRetroAmount(e.target.value)} />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      {[10, 25, 50, 100].map(v => (
+                        <button key={v} type="button" onClick={() => setRetroAmount(String(v))}
+                          className="btn btn-sm btn-outline">{v}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Preview resultado */}
+                  {betType && retroAmountNum > 0 && (
+                    <div style={{
+                      background: retroWon ? 'var(--green-bg)' : 'rgba(239,68,68,0.08)',
+                      border: `1px solid ${retroWon ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                      borderRadius: 'var(--r-md)', padding: '12px 14px', fontSize: '0.82rem'
+                    }}>
+                      <div style={{ fontWeight: 700, color: retroWon ? 'var(--green)' : 'var(--red)', marginBottom: 6 }}>
+                        {retroWon ? 'Apuesta GANADA' : 'Apuesta PERDIDA'}
+                      </div>
+                      {retroWon ? (
+                        <div style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>
+                          Se descontaran <strong>{retroAmountNum}</strong> fichas (apuesta colocada)<br/>
+                          Se acreditaran <strong>{retroAmountNum * 2}</strong> fichas (premio)<br/>
+                          Ganancia neta: <strong style={{ color: 'var(--green)' }}>+{retroAmountNum} fichas</strong>
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-2)', lineHeight: 1.6 }}>
+                          Se descontaran <strong>{retroAmountNum}</strong> fichas (apuesta perdida)<br/>
+                          Perdida neta: <strong style={{ color: 'var(--red)' }}>-{retroAmountNum} fichas</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {/* ---- MODO MANUAL ---- */}
           {mode === 'manual' && (
             <>
               <div className="form-group">
@@ -302,8 +453,7 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
                   value={manualAmount} onChange={e => setManualAmount(e.target.value)} />
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                   {[50, 100, 200, -50, -100].map(v => (
-                    <button key={v} type="button"
-                      onClick={() => setManualAmount(String(v))}
+                    <button key={v} type="button" onClick={() => setManualAmount(String(v))}
                       className="btn btn-sm btn-outline"
                       style={{ color: v < 0 ? 'var(--red)' : 'var(--green)', borderColor: v < 0 ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)' }}>
                       {v > 0 ? '+' : ''}{v}
@@ -319,94 +469,17 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
             </>
           )}
 
-          {mode === 'bet' && (
-            <>
-              <div className="form-group">
-                <label className="form-label">
-                  Apuesta ({pendingBets.length} pendiente{pendingBets.length !== 1 ? 's' : ''}, {allBets.length} total)
-                </label>
-                <select className="form-input" value={selectedBetId}
-                  onChange={e => setSelectedBetId(e.target.value)} required>
-                  <option value="">— Seleccionar apuesta —</option>
-                  {pendingBets.length > 0 && (
-                    <optgroup label="Pendientes">
-                      {pendingBets.map(b => (
-                        <option key={b.id} value={b.id}>{betLabel(b)}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {allBets.filter(b => b.status !== 'pending').length > 0 && (
-                    <optgroup label="Ya liquidadas">
-                      {allBets.filter(b => b.status !== 'pending').map(b => (
-                        <option key={b.id} value={b.id}>{betLabel(b)}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-
-              {selectedBet && selectedMatch && (
-                <div style={{ background: 'var(--bg-0)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '12px 14px', fontSize: '0.82rem' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>
-                    {selectedMatch.team1} vs {selectedMatch.team2}
-                  </div>
-                  <div style={{ color: 'var(--text-3)', marginBottom: 4 }}>
-                    Aposto: <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>
-                      {selectedBet.bet_type === 'draw' ? 'Empate'
-                        : selectedBet.bet_type === 'team1_win' ? `Gana ${selectedMatch.team1}`
-                        : `Gana ${selectedMatch.team2}`}
-                    </span>
-                  </div>
-                  <div style={{ color: 'var(--text-3)' }}>
-                    Monto: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{Number(selectedBet.amount).toFixed(0)} fichas</span>
-                    {' · '}Premio potencial: <span style={{ color: 'var(--green)', fontWeight: 700 }}>{Number(selectedBet.potential_win).toFixed(0)} fichas</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label">Resultado de la apuesta</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {[
-                    { key: 'won', label: 'Ganada', color: 'var(--green)', bg: 'var(--green-bg)', border: 'rgba(34,197,94,0.3)' },
-                    { key: 'lost', label: 'Perdida', color: 'var(--red)', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)' },
-                  ].map(({ key, label, color, bg, border }) => (
-                    <button key={key} type="button" onClick={() => setOutcome(key)}
-                      style={{
-                        padding: '10px', borderRadius: 'var(--r-md)', fontWeight: 700, fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        border: `1px solid ${outcome === key ? border : 'var(--border)'}`,
-                        background: outcome === key ? bg : 'var(--bg-card-2)',
-                        color: outcome === key ? color : 'var(--text-3)',
-                      }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {selectedBet && (
-                <div style={{ background: outcome === 'won' ? 'var(--green-bg)' : 'rgba(239,68,68,0.08)', border: `1px solid ${outcome === 'won' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: '0.82rem' }}>
-                  {outcome === 'won' ? (
-                    <span style={{ color: 'var(--green)' }}>
-                      Se acreditaran <strong>{Number(selectedBet.potential_win).toFixed(0)} fichas</strong> al balance del usuario
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--red)' }}>
-                      La apuesta se marcara como perdida — no se modifica el balance (ya se descontaron al apostar)
-                    </span>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Preview del nuevo balance */}
-          {((mode === 'manual' && manualAmount !== '') || (mode === 'bet' && selectedBet)) && (
+          {/* Nuevo balance preview */}
+          {((mode === 'manual' && manualAmount !== '') || (mode === 'retro' && betType && retroAmountNum > 0)) && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-0)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', fontSize: '0.82rem' }}>
               <span style={{ color: 'var(--text-3)' }}>Nuevo balance:</span>
               <span style={{ fontWeight: 800, color: 'var(--gold)' }}>
-                {Number(Number(user.chips_balance) + (mode === 'bet' ? betAmountForOutcome() : (parseFloat(manualAmount) || 0))).toFixed(0)} fichas
+                {mode === 'retro'
+                  ? (retroWon
+                    ? (Number(user.chips_balance) + retroAmountNum).toFixed(0)
+                    : (Number(user.chips_balance) - retroAmountNum).toFixed(0))
+                  : (Number(user.chips_balance) + (parseFloat(manualAmount) || 0)).toFixed(0)
+                } fichas
               </span>
             </div>
           )}
@@ -418,7 +491,7 @@ function AdjustBalanceModal({ user, userBets, matches, onClose, onSuccess }) {
             <button type="submit" className="btn btn-gold btn-block" disabled={loading}>
               {loading
                 ? <><div className="spinner" style={{width:16,height:16,borderWidth:2}} /> Aplicando...</>
-                : <><CheckIcon size={16} /> Confirmar ajuste</>
+                : <><CheckIcon size={16} /> Confirmar</>
               }
             </button>
           </div>
@@ -772,7 +845,6 @@ export default function AdminPage() {
       {adjustModal && (
         <AdjustBalanceModal
           user={adjustModal}
-          userBets={bets.filter(b => b.user_id === adjustModal.id)}
           matches={matches}
           onClose={() => setAdjustModal(null)}
           onSuccess={fetchAll}
