@@ -543,6 +543,11 @@ export default function AdminPage() {
     fetchAll()
   }
 
+  async function closeBetting(matchId) {
+    await supabase.from('matches').update({ betting_closed: true }).eq('id', matchId)
+    fetchAll()
+  }
+
   async function handleSyncScores() {
     setSyncing(true)
     setSyncMsg('')
@@ -680,11 +685,17 @@ export default function AdminPage() {
                                     En vivo
                                   </button>
                                 )}
-                                {m.betting_closed && (
+                                {m.betting_closed ? (
                                   <button className="btn btn-sm btn-outline"
                                     style={{ color: 'var(--green)', borderColor: 'rgba(34,197,94,0.35)' }}
                                     onClick={() => reopenBetting(m.id)}>
                                     Reabrir apuestas
+                                  </button>
+                                ) : (
+                                  <button className="btn btn-sm btn-outline"
+                                    style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,0.35)' }}
+                                    onClick={() => closeBetting(m.id)}>
+                                    Cerrar apuestas
                                   </button>
                                 )}
                                 {m.status !== 'finished' && (
