@@ -547,6 +547,11 @@ body {
   box-shadow: var(--shadow-lg);
   animation: modalIn 0.25s ease;
 }
+.modal-scrollable {
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 24px;
