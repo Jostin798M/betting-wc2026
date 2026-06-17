@@ -363,7 +363,7 @@ BEGIN
   IF v_balance < p_amount THEN RETURN json_build_object('success',false,'error','Balance insuficiente'); END IF;
   SELECT * INTO v_match FROM matches WHERE id = p_match_id;
   IF v_match IS NULL THEN RETURN json_build_object('success',false,'error','Partido no encontrado'); END IF;
-  IF v_match.status != 'upcoming' OR v_match.betting_closed OR v_match.match_datetime <= NOW() THEN
+  IF v_match.betting_closed THEN
     RETURN json_build_object('success',false,'error','Apuestas cerradas para este partido'); END IF;
   v_new_balance := v_balance - p_amount;
   INSERT INTO bets (user_id,match_id,bet_type,amount,potential_win) VALUES (v_user_id,p_match_id,p_bet_type,p_amount,p_amount*2) RETURNING id INTO v_bet_id;

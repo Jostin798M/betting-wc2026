@@ -125,7 +125,7 @@ BEGIN
   IF v_match IS NULL THEN
     RETURN json_build_object('success', false, 'error', 'Partido no encontrado');
   END IF;
-  IF v_match.status != 'upcoming' OR v_match.betting_closed THEN
+  IF v_match.betting_closed THEN
     RETURN json_build_object('success', false, 'error', 'Las apuestas para este partido estan cerradas');
   END IF;
 
