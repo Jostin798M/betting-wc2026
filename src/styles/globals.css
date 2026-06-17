@@ -534,8 +534,9 @@ body {
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,0.7);
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 20px 16px;
+  overflow-y: auto;
   animation: overlayIn 0.2s ease;
 }
 .modal {
@@ -546,11 +547,10 @@ body {
   width: 100%; max-width: 480px;
   box-shadow: var(--shadow-lg);
   animation: modalIn 0.25s ease;
+  margin: auto;
 }
 .modal-scrollable {
-  max-height: 90vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* el scroll lo maneja el overlay; esta clase ya no restringe la altura */
 }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
