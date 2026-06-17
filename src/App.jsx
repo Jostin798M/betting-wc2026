@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
@@ -9,13 +9,13 @@ import BankPage from './pages/BankPage'
 import AdminPage from './pages/AdminPage'
 
 function useInitialized() {
-  const [status, setStatus] = useState('loading') // 'loading' | 'setup' | 'ready'
+  const [status, setStatus] = useState('loading')
 
   useEffect(() => {
     fetch('/api/setup')
       .then(r => r.json())
       .then(d => setStatus(d.initialized ? 'ready' : 'setup'))
-      .catch(() => setStatus('ready')) // on error assume ready (dev mode without API)
+      .catch(() => setStatus('setup')) // si falla el API, mostrar setup
   }, [])
 
   return status
@@ -44,21 +44,24 @@ export default function App() {
     </div>
   )
 
-  if (initStatus === 'setup') return (
-    <Routes>
-      <Route path="*" element={<SetupPage />} />
-    </Routes>
-  )
-
+  // /setup siempre accesible directamente
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/betting" replace /> : <Login />} />
-      <Route path="/" element={<Navigate to="/betting" replace />} />
-      <Route element={<Layout />}>
-        <Route path="/betting" element={<ProtectedRoute><BettingPage /></ProtectedRoute>} />
-        <Route path="/bank" element={<ProtectedRoute><BankPage /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>} />
-      </Route>
+      <Route path="/setup" element={<SetupPage />} />
+
+      {initStatus === 'setup' ? (
+        <Route path="*" element={<SetupPage />} />
+      ) : (
+        <>
+          <Route path="/login" element={user ? <Navigate to="/betting" replace /> : <Login />} />
+          <Route path="/" element={<Navigate to="/betting" replace />} />
+          <Route element={<Layout />}>
+            <Route path="/betting" element={<ProtectedRoute><BettingPage /></ProtectedRoute>} />
+            <Route path="/bank" element={<ProtectedRoute><BankPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>} />
+          </Route>
+        </>
+      )}
     </Routes>
   )
 }

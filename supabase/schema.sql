@@ -71,31 +71,30 @@ ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
+-- Funcion sin recursion para verificar si el usuario es admin
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+$$;
+
 -- Profiles
-CREATE POLICY "profiles_select_own" ON profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "profiles_select_own" ON profiles FOR SELECT TO authenticated USING (auth.uid() = id OR is_admin());
 CREATE POLICY "profiles_insert_own" ON profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
-CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
-CREATE POLICY "profiles_select_admin" ON profiles FOR SELECT TO authenticated USING (
-  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-);
+CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (auth.uid() = id OR is_admin());
 
 -- Matches: all authenticated can read
 CREATE POLICY "matches_select_all" ON matches FOR SELECT TO authenticated USING (TRUE);
-CREATE POLICY "matches_all_admin" ON matches FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-);
+CREATE POLICY "matches_all_admin" ON matches FOR ALL TO authenticated USING (is_admin());
 
 -- Bets
-CREATE POLICY "bets_select_own" ON bets FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "bets_all_admin" ON bets FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-);
+CREATE POLICY "bets_select_own" ON bets FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_admin());
+CREATE POLICY "bets_all_admin" ON bets FOR ALL TO authenticated USING (is_admin());
 
 -- Transactions
-CREATE POLICY "transactions_select_own" ON transactions FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "transactions_all_admin" ON transactions FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-);
+CREATE POLICY "transactions_select_own" ON transactions FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_admin());
+CREATE POLICY "transactions_all_admin" ON transactions FOR ALL TO authenticated USING (is_admin());
 
 -- ============================================
 -- RPC FUNCTIONS

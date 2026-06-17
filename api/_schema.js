@@ -64,37 +64,42 @@ export const RLS_STATEMENTS = [
   `ALTER TABLE bets ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE transactions ENABLE ROW LEVEL SECURITY`,
 
+  // Funcion SECURITY DEFINER para chequear admin sin causar recursion en RLS
+  `CREATE OR REPLACE FUNCTION is_admin()
+  RETURNS BOOLEAN
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+  AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+    )
+  $$`,
+
+  // Profiles: cada usuario ve solo su propio perfil; admin ve todos (via funcion sin recursion)
   `DROP POLICY IF EXISTS "profiles_select_own" ON profiles`,
-  `CREATE POLICY "profiles_select_own" ON profiles FOR SELECT TO authenticated USING (auth.uid() = id)`,
+  `CREATE POLICY "profiles_select_own" ON profiles FOR SELECT TO authenticated USING (auth.uid() = id OR is_admin())`,
   `DROP POLICY IF EXISTS "profiles_insert_own" ON profiles`,
   `CREATE POLICY "profiles_insert_own" ON profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id)`,
   `DROP POLICY IF EXISTS "profiles_update_own" ON profiles`,
-  `CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (auth.uid() = id)`,
+  `CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (auth.uid() = id OR is_admin())`,
   `DROP POLICY IF EXISTS "profiles_select_admin" ON profiles`,
-  `CREATE POLICY "profiles_select_admin" ON profiles FOR SELECT TO authenticated USING (
-    EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )`,
 
+  // Matches: todos los autenticados pueden leer
   `DROP POLICY IF EXISTS "matches_select_all" ON matches`,
   `CREATE POLICY "matches_select_all" ON matches FOR SELECT TO authenticated USING (TRUE)`,
   `DROP POLICY IF EXISTS "matches_all_admin" ON matches`,
-  `CREATE POLICY "matches_all_admin" ON matches FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )`,
+  `CREATE POLICY "matches_all_admin" ON matches FOR ALL TO authenticated USING (is_admin())`,
 
+  // Bets: cada usuario ve las suyas; admin ve todas
   `DROP POLICY IF EXISTS "bets_select_own" ON bets`,
-  `CREATE POLICY "bets_select_own" ON bets FOR SELECT TO authenticated USING (user_id = auth.uid())`,
+  `CREATE POLICY "bets_select_own" ON bets FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_admin())`,
   `DROP POLICY IF EXISTS "bets_all_admin" ON bets`,
-  `CREATE POLICY "bets_all_admin" ON bets FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )`,
+  `CREATE POLICY "bets_all_admin" ON bets FOR ALL TO authenticated USING (is_admin())`,
 
+  // Transactions: cada usuario ve las suyas; admin ve todas
   `DROP POLICY IF EXISTS "transactions_select_own" ON transactions`,
-  `CREATE POLICY "transactions_select_own" ON transactions FOR SELECT TO authenticated USING (user_id = auth.uid())`,
+  `CREATE POLICY "transactions_select_own" ON transactions FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_admin())`,
   `DROP POLICY IF EXISTS "transactions_all_admin" ON transactions`,
-  `CREATE POLICY "transactions_all_admin" ON transactions FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )`,
+  `CREATE POLICY "transactions_all_admin" ON transactions FOR ALL TO authenticated USING (is_admin())`,
 ]
 
 export const FUNCTION_STATEMENTS = [
