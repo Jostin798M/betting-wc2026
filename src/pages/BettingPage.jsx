@@ -38,9 +38,10 @@ export default function BettingPage() {
   const [availablePhases, setAvailablePhases] = useState(['group'])
 
   const fetchData = useCallback(async () => {
+    if (!profile?.id) return
     const [matchesRes, betsRes] = await Promise.all([
       supabase.from('matches').select('*').order('match_datetime', { ascending: true }),
-      supabase.from('bets').select('*').eq('user_id', profile?.id ?? '')
+      supabase.from('bets').select('*').eq('user_id', profile.id)
     ])
 
     if (matchesRes.data) {
