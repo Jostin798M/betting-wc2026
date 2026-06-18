@@ -185,16 +185,22 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
           </div>
         )}
 
+        {remaining > balance && (
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 8 }}>
+            Tu balance actual no alcanza para saldar todo — paga lo que puedas y el resto despues de ganar mas fichas.
+          </p>
+        )}
+
         <div className="loan-pay-row">
           <div className="loan-pay-input-wrap">
             <ChipIcon size={14} className="loan-pay-chip" />
             <input
               type="number"
               className="form-input"
-              placeholder={`Max ${maxPay.toFixed(0)} FCH`}
+              placeholder={`Deuda: ${remaining} FCH`}
               value={payAmount}
               min={1}
-              max={maxPay}
+              max={remaining}
               step={1}
               onChange={e => setPayAmount(e.target.value)}
             />
@@ -203,7 +209,12 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
             className="btn btn-gold"
             style={{ flexShrink: 0 }}
             onClick={handlePayLoan}
-            disabled={loading || !payAmount || parseFloat(payAmount) <= 0 || balance <= 0}
+            disabled={
+              loading ||
+              !payAmount ||
+              parseFloat(payAmount) <= 0 ||
+              parseFloat(payAmount) > balance
+            }
           >
             {loading ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
               : <><CheckIcon size={15} /> Pagar</>}
@@ -211,12 +222,17 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
           <button
             className="btn btn-outline btn-sm"
             style={{ flexShrink: 0 }}
-            onClick={() => setPayAmount(maxPay.toFixed(0))}
+            onClick={() => setPayAmount(String(maxPay))}
             disabled={balance <= 0}
           >
-            Todo
+            Max
           </button>
         </div>
+        {payAmount && parseFloat(payAmount) > balance && (
+          <p style={{ fontSize: '0.72rem', color: 'var(--red)', marginTop: 6 }}>
+            No tienes suficientes fichas — tu balance es {balance} FCH
+          </p>
+        )}
       </div>
     )
   }
