@@ -17,18 +17,21 @@ const TX_LABELS = {
 }
 
 const LOAN_TIERS = [
-  { max: 10,  rate: 8,   label: '1–10' },
-  { max: 20,  rate: 15,  label: '11–20' },
-  { max: 30,  rate: 25,  label: '21–30' },
-  { max: 40,  rate: 40,  label: '31–40' },
-  { max: 50,  rate: 60,  label: '41–50' },
+  { max: 10,  rate: 5,   label: '1–10' },
+  { max: 20,  rate: 10,  label: '11–20' },
+  { max: 30,  rate: 18,  label: '21–30' },
+  { max: 40,  rate: 28,  label: '31–40' },
+  { max: 50,  rate: 40,  label: '41–50' },
 ]
 
 function getLoanRate(amount) {
-  return LOAN_TIERS.find(t => amount <= t.max)?.rate ?? 60
+  return LOAN_TIERS.find(t => amount <= t.max)?.rate ?? 40
 }
 function getTotalToPay(amount) {
   return Math.ceil(amount * (1 + getLoanRate(amount) / 100))
+}
+function ceilFch(val) {
+  return Math.ceil(Number(val))
 }
 function getActiveTier(amount) {
   return LOAN_TIERS.findIndex(t => amount <= t.max)
@@ -130,8 +133,10 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
   }
 
   if (activeLoan) {
-    const remaining = activeLoan.total_to_pay - activeLoan.amount_paid
-    const paidPct = Math.min(100, (activeLoan.amount_paid / activeLoan.total_to_pay) * 100)
+    const totalToPay = ceilFch(activeLoan.total_to_pay)
+    const amountPaid = ceilFch(activeLoan.amount_paid)
+    const remaining = Math.max(0, totalToPay - amountPaid)
+    const paidPct = Math.min(100, (amountPaid / totalToPay) * 100)
     const maxPay = Math.min(balance, remaining)
 
     return (
@@ -143,16 +148,16 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
           <div>
             <p className="loan-alert-title">Deuda activa con La Casa</p>
             <p className="loan-alert-sub">
-              Prestamo de {activeLoan.amount} FCH · {activeLoan.interest_rate}% interes
+              Prestamo de {ceilFch(activeLoan.amount)} FCH · {activeLoan.interest_rate}% interes
             </p>
           </div>
         </div>
 
         <div className="loan-debt-bar-wrap">
           <div className="loan-debt-label">
-            <span>Pagado: {activeLoan.amount_paid.toFixed(0)} FCH</span>
+            <span>Pagado: {amountPaid} FCH</span>
             <span style={{ color: 'var(--red)', fontWeight: 700 }}>
-              Deuda: {remaining.toFixed(0)} FCH
+              Deuda: {remaining} FCH
             </span>
           </div>
           <div className="loan-debt-bar-bg">
@@ -162,7 +167,7 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
 
         <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 12 }}>
           Total a pagar: <strong style={{ color: 'var(--text-1)' }}>
-            {activeLoan.total_to_pay} FCH
+            {totalToPay} FCH
           </strong>
           {' '}· Tu balance actual: <strong style={{ color: 'var(--gold)' }}>
             {balance.toFixed(0)} FCH
@@ -431,7 +436,7 @@ export default function BankPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
                 <span style={{ color: 'var(--text-3)' }}>Deuda pendiente</span>
                 <span style={{ color: 'var(--red)', fontWeight: 700 }}>
-                  {(activeLoan.total_to_pay - activeLoan.amount_paid).toFixed(0)} FCH
+                  {Math.max(0, ceilFch(activeLoan.total_to_pay) - ceilFch(activeLoan.amount_paid))} FCH
                 </span>
               </div>
             </div>

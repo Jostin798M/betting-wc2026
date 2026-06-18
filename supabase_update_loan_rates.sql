@@ -1,6 +1,17 @@
--- Actualizar tasas de interes + redondeo sin decimales
+-- Corregir prestamos existentes con decimales + bajar tasas
 -- Ejecutar en Supabase SQL Editor
 
+-- 1. Redondear hacia arriba los prestamos activos que tengan decimales
+UPDATE loans
+SET total_to_pay = CEIL(total_to_pay)
+WHERE status = 'active' AND total_to_pay <> CEIL(total_to_pay);
+
+-- 2. Actualizar funcion con nuevas tasas y CEIL
+--     1-10  →  5%
+--    11-20  → 10%
+--    21-30  → 18%
+--    31-40  → 28%
+--    41-50  → 40%
 CREATE OR REPLACE FUNCTION request_loan(p_amount NUMERIC)
 RETURNS JSON AS $$
 DECLARE
@@ -37,24 +48,18 @@ BEGIN
       'Ya tienes un prestamo activo. Pagalo antes de pedir otro.');
   END IF;
 
-  --  1-10  →  8%
-  -- 11-20  → 15%
-  -- 21-30  → 25%
-  -- 31-40  → 40%
-  -- 41-50  → 60%
   IF p_amount <= 10 THEN
-    v_interest_rate := 8;
+    v_interest_rate := 5;
   ELSIF p_amount <= 20 THEN
-    v_interest_rate := 15;
+    v_interest_rate := 10;
   ELSIF p_amount <= 30 THEN
-    v_interest_rate := 25;
+    v_interest_rate := 18;
   ELSIF p_amount <= 40 THEN
-    v_interest_rate := 40;
+    v_interest_rate := 28;
   ELSE
-    v_interest_rate := 60;
+    v_interest_rate := 40;
   END IF;
 
-  -- CEIL garantiza entero siempre, nunca decimal
   v_total_to_pay := CEIL(p_amount * (1 + v_interest_rate / 100.0));
 
   INSERT INTO loans (user_id, amount, interest_rate, total_to_pay)
