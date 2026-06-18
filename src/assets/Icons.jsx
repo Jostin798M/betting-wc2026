@@ -159,3 +159,24 @@ export function FilterIcon({ size = 24, ...p }) {
     </svg>
   )
 }
+
+export function LoanIcon({ size = 24, ...p }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...p}>
+      <path d="M12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2Z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 5V9M10 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M4 20C4 17.2386 7.58172 15 12 15C14.0736 15 15.9712 15.4832 17.4321 16.2692" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M17 19L19 21L23 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function AlertIcon({ size = 24, ...p }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...p}>
+      <path d="M10.2898 3.86L1.81978 18C1.64514 18.3024 1.55268 18.6453 1.55177 18.9945C1.55086 19.3437 1.64153 19.6871 1.81456 19.9905C1.98758 20.2939 2.23683 20.5468 2.53773 20.7239C2.83863 20.901 3.18058 20.9962 3.52978 21H20.4698C20.819 20.9962 21.1609 20.901 21.4618 20.7239C21.7627 20.5468 22.012 20.2939 22.185 19.9905C22.358 19.6871 22.4487 19.3437 22.4478 18.9945C22.4469 18.6453 22.3544 18.3024 22.1798 18L13.7098 3.86C13.5315 3.56631 13.2805 3.32332 12.981 3.15469C12.6814 2.98605 12.3435 2.89726 11.9998 2.89726C11.6561 2.89726 11.3182 2.98605 11.0186 3.15469C10.7191 3.32332 10.4681 3.56631 10.2898 3.86Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 9V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="12" cy="17" r="0.5" fill="currentColor" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  )
+}

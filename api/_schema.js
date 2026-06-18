@@ -49,12 +49,24 @@ export const SCHEMA_STATEMENTS = [
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
     amount NUMERIC(10,2) NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('initial_deposit','bet_placed','bet_won','bet_lost','admin_adjustment')),
+    type TEXT NOT NULL CHECK (type IN ('initial_deposit','bet_placed','bet_won','bet_lost','admin_adjustment','loan_received','loan_payment')),
     description TEXT NOT NULL,
     balance_after NUMERIC(10,2) NOT NULL,
     related_bet_id UUID REFERENCES bets(id),
     match_info TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS loans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    interest_rate NUMERIC(5,2) NOT NULL,
+    total_to_pay NUMERIC(10,2) NOT NULL,
+    amount_paid NUMERIC(10,2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','paid')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    paid_at TIMESTAMPTZ
   )`,
 ]
 
