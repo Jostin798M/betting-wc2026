@@ -209,12 +209,7 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
             className="btn btn-gold"
             style={{ flexShrink: 0 }}
             onClick={handlePayLoan}
-            disabled={
-              loading ||
-              !payAmount ||
-              parseFloat(payAmount) <= 0 ||
-              parseFloat(payAmount) > balance
-            }
+            disabled={loading || !payAmount || parseFloat(payAmount) <= 0}
           >
             {loading ? <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
               : <><CheckIcon size={15} /> Pagar</>}
@@ -228,11 +223,6 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
             Max
           </button>
         </div>
-        {payAmount && parseFloat(payAmount) > balance && (
-          <p style={{ fontSize: '0.72rem', color: 'var(--red)', marginTop: 6 }}>
-            No tienes suficientes fichas — tu balance es {balance.toFixed(0)} FCH
-          </p>
-        )}
       </div>
     )
   }
