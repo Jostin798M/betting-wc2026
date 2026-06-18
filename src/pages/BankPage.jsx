@@ -17,18 +17,18 @@ const TX_LABELS = {
 }
 
 const LOAN_TIERS = [
-  { max: 10,  rate: 10,  label: '1–10' },
-  { max: 20,  rate: 20,  label: '11–20' },
-  { max: 30,  rate: 35,  label: '21–30' },
-  { max: 40,  rate: 55,  label: '31–40' },
-  { max: 50,  rate: 80,  label: '41–50' },
+  { max: 10,  rate: 8,   label: '1–10' },
+  { max: 20,  rate: 15,  label: '11–20' },
+  { max: 30,  rate: 25,  label: '21–30' },
+  { max: 40,  rate: 40,  label: '31–40' },
+  { max: 50,  rate: 60,  label: '41–50' },
 ]
 
 function getLoanRate(amount) {
-  return LOAN_TIERS.find(t => amount <= t.max)?.rate ?? 80
+  return LOAN_TIERS.find(t => amount <= t.max)?.rate ?? 60
 }
 function getTotalToPay(amount) {
-  return Math.round(amount * (1 + getLoanRate(amount) / 100) * 100) / 100
+  return Math.ceil(amount * (1 + getLoanRate(amount) / 100))
 }
 function getActiveTier(amount) {
   return LOAN_TIERS.findIndex(t => amount <= t.max)

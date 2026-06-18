@@ -41,11 +41,11 @@ CREATE POLICY "loans_update_fn" ON loans
 
 -- 4. Funcion: solicitar prestamo
 --    Intereses escalonados (mas fichas = mas interes):
---      1-10 FCH  → 10%
---     11-20 FCH  → 20%
---     21-30 FCH  → 35%
---     31-40 FCH  → 55%
---     41-50 FCH  → 80%
+--      1-10 FCH  →  8%
+--     11-20 FCH  → 15%
+--     21-30 FCH  → 25%
+--     31-40 FCH  → 40%
+--     41-50 FCH  → 60%
 CREATE OR REPLACE FUNCTION request_loan(p_amount NUMERIC)
 RETURNS JSON AS $$
 DECLARE
@@ -84,18 +84,18 @@ BEGIN
 
   -- Calcular interes segun tramo
   IF p_amount <= 10 THEN
-    v_interest_rate := 10;
+    v_interest_rate := 8;
   ELSIF p_amount <= 20 THEN
-    v_interest_rate := 20;
+    v_interest_rate := 15;
   ELSIF p_amount <= 30 THEN
-    v_interest_rate := 35;
+    v_interest_rate := 25;
   ELSIF p_amount <= 40 THEN
-    v_interest_rate := 55;
+    v_interest_rate := 40;
   ELSE
-    v_interest_rate := 80;
+    v_interest_rate := 60;
   END IF;
 
-  v_total_to_pay := ROUND(p_amount * (1 + v_interest_rate / 100.0), 2);
+  v_total_to_pay := CEIL(p_amount * (1 + v_interest_rate / 100.0));
 
   INSERT INTO loans (user_id, amount, interest_rate, total_to_pay)
   VALUES (v_user_id, p_amount, v_interest_rate, v_total_to_pay)
