@@ -230,7 +230,7 @@ function LoanSection({ balance, activeLoan, onLoanTaken, onLoanPaid }) {
         </div>
         {payAmount && parseFloat(payAmount) > balance && (
           <p style={{ fontSize: '0.72rem', color: 'var(--red)', marginTop: 6 }}>
-            No tienes suficientes fichas — tu balance es {balance} FCH
+            No tienes suficientes fichas — tu balance es {balance.toFixed(0)} FCH
           </p>
         )}
       </div>
