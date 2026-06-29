@@ -39,9 +39,16 @@ export default function MatchCard({ match, userBet, onBet }) {
   const isFinished = match.status === 'finished'
   const canBet = !match.betting_closed
 
-  const phaseLabel = match.phase === 'group'
-    ? `Grupo ${match.group_name}`
-    : match.phase.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const PHASE_LABELS = {
+    group: `Grupo ${match.group_name}`,
+    round_of_32: 'Ronda de 32',
+    round_of_16: 'Octavos de final',
+    quarterfinal: 'Cuartos de final',
+    semifinal: 'Semifinal',
+    third_place: 'Tercer puesto',
+    final: 'Final',
+  }
+  const phaseLabel = PHASE_LABELS[match.phase] ?? match.phase
 
   return (
     <div className={`match-card${isLive ? ' live' : ''}${isFinished ? ' finished' : ''}`}>

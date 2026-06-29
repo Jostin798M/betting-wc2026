@@ -509,6 +509,129 @@ function AdjustBalanceModal({ user, matches, onClose, onSuccess }) {
 }
 
 // ============================================
+// CREATE MATCH MODAL
+// ============================================
+const KNOCKOUT_PHASES = [
+  { key: 'round_of_32', label: 'Ronda de 32' },
+  { key: 'round_of_16', label: 'Octavos de final' },
+  { key: 'quarterfinal', label: 'Cuartos de final' },
+  { key: 'semifinal', label: 'Semifinal' },
+  { key: 'third_place', label: 'Tercer puesto' },
+  { key: 'final', label: 'Final' },
+]
+
+function CreateMatchModal({ onClose, onSuccess }) {
+  const now = new Date()
+  now.setMinutes(0, 0, 0)
+  const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+
+  const [form, setForm] = useState({
+    phase: 'round_of_32',
+    team1: '', team1_code: '',
+    team2: '', team2_code: '',
+    match_datetime: localIso,
+    stadium: '', city: '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (!form.team1.trim() || !form.team2.trim()) { setError('Completa los nombres de los equipos'); return }
+    setLoading(true)
+    const { error: err } = await supabase.from('matches').insert({
+      phase: form.phase,
+      group_name: null,
+      team1: form.team1.trim(),
+      team1_code: (form.team1_code.trim() || 'un').toLowerCase(),
+      team2: form.team2.trim(),
+      team2_code: (form.team2_code.trim() || 'un').toLowerCase(),
+      match_datetime: new Date(form.match_datetime).toISOString(),
+      stadium: form.stadium.trim() || null,
+      city: form.city.trim() || null,
+      status: 'upcoming',
+      betting_closed: false,
+      team1_score: 0,
+      team2_score: 0,
+    })
+    setLoading(false)
+    if (err) { setError(err.message); return }
+    onSuccess?.()
+    onClose()
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-scrollable">
+        <div className="modal-header">
+          <span className="modal-title">Crear partido de eliminatoria</span>
+          <button className="modal-close" onClick={onClose}><XIcon size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="form-group">
+            <label className="form-label">Fase</label>
+            <select className="form-input" value={form.phase} onChange={e => set('phase', e.target.value)}>
+              {KNOCKOUT_PHASES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Equipo 1</label>
+              <input className="form-input" required placeholder="ej: Argentina"
+                value={form.team1} onChange={e => set('team1', e.target.value)} />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Codigo bandera</label>
+              <input className="form-input" placeholder="ej: ar" maxLength={4}
+                value={form.team1_code} onChange={e => set('team1_code', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Equipo 2</label>
+              <input className="form-input" required placeholder="ej: Francia"
+                value={form.team2} onChange={e => set('team2', e.target.value)} />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Codigo bandera</label>
+              <input className="form-input" placeholder="ej: fr" maxLength={4}
+                value={form.team2_code} onChange={e => set('team2_code', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fecha y hora (hora local)</label>
+            <input type="datetime-local" className="form-input" required
+              value={form.match_datetime} onChange={e => set('match_datetime', e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Estadio (opcional)</label>
+              <input className="form-input" placeholder="ej: MetLife Stadium"
+                value={form.stadium} onChange={e => set('stadium', e.target.value)} />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Ciudad (opcional)</label>
+              <input className="form-input" placeholder="ej: Nueva York"
+                value={form.city} onChange={e => set('city', e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn btn-outline btn-block" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn btn-gold btn-block" disabled={loading}>
+              {loading ? <><div className="spinner" style={{width:16,height:16,borderWidth:2}} /> Creando...</> : <><PlusIcon size={16} /> Crear partido</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // ADMIN PAGE
 // ============================================
 export default function AdminPage() {
@@ -519,6 +642,7 @@ export default function AdminPage() {
   const [bets, setBets] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateUser, setShowCreateUser] = useState(false)
+  const [showCreateMatch, setShowCreateMatch] = useState(false)
   const [resultModal, setResultModal] = useState(null)
   const [adjustModal, setAdjustModal] = useState(null)
   const [matchFilter, setMatchFilter] = useState('all')
@@ -638,13 +762,18 @@ export default function AdminPage() {
                 <div className="card">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                     <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Partidos ({matches.length})</h2>
-                    <select className="form-input" style={{ width: 'auto', fontSize: '0.78rem', padding: '5px 10px' }}
-                      value={matchFilter} onChange={e => setMatchFilter(e.target.value)}>
-                      <option value="all">Todos</option>
-                      <option value="upcoming">Proximos</option>
-                      <option value="live">En vivo</option>
-                      <option value="finished">Finalizados</option>
-                    </select>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button className="btn btn-gold btn-sm" onClick={() => setShowCreateMatch(true)}>
+                        <PlusIcon size={15} /> Nuevo partido
+                      </button>
+                      <select className="form-input" style={{ width: 'auto', fontSize: '0.78rem', padding: '5px 10px' }}
+                        value={matchFilter} onChange={e => setMatchFilter(e.target.value)}>
+                        <option value="all">Todos</option>
+                        <option value="upcoming">Proximos</option>
+                        <option value="live">En vivo</option>
+                        <option value="finished">Finalizados</option>
+                      </select>
+                    </div>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
                     <table className="data-table">
@@ -856,6 +985,9 @@ export default function AdminPage() {
 
       {showCreateUser && (
         <CreateUserModal onClose={() => setShowCreateUser(false)} onSuccess={fetchAll} />
+      )}
+      {showCreateMatch && (
+        <CreateMatchModal onClose={() => setShowCreateMatch(false)} onSuccess={fetchAll} />
       )}
       {resultModal && (
         <SetResultModal match={resultModal} onClose={() => setResultModal(null)} onSuccess={fetchAll} />

@@ -12,6 +12,7 @@ const PHASES = [
   { key: 'round_of_16', label: 'Octavos' },
   { key: 'quarterfinal', label: 'Cuartos' },
   { key: 'semifinal', label: 'Semifinal' },
+  { key: 'third_place', label: 'Tercer puesto' },
   { key: 'final', label: 'Final' },
 ]
 
@@ -238,7 +239,7 @@ function GroupStandings({ group, matches }) {
         <span>PJ</span><span>PG</span><span>PE</span><span>PP</span><span>Pts</span>
       </div>
       {rows.map((t, i) => (
-        <div key={t.team} className={`standing-row${i < 2 ? ' qualified' : ''}`}>
+        <div key={t.team} className={`standing-row${i < 2 ? ' qualified' : i === 2 ? ' potential' : ''}`}>
           <span className="standing-pos">{i + 1}</span>
           <div className="standing-team">
             <div className="standing-flag">
@@ -254,7 +255,7 @@ function GroupStandings({ group, matches }) {
         </div>
       ))}
       <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 8 }}>
-        Verde = clasifica a la siguiente ronda
+        Verde = clasifica directamente &bull; Amarillo = posible clasificacion (mejor 3ro)
       </p>
     </div>
   )

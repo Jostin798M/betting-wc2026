@@ -799,6 +799,7 @@ body {
 }
 .standing-row:last-child { border-bottom: none; }
 .standing-row.qualified { background: rgba(34,197,94,0.04); }
+.standing-row.potential { background: rgba(240,180,41,0.05); }
 .standing-pos { color: var(--text-3); font-weight: 600; }
 .standing-team { display: flex; align-items: center; gap: 6px; color: var(--text-1); font-weight: 500; }
 .standing-flag { width: 20px; height: 14px; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
