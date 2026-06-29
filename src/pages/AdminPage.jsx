@@ -685,8 +685,10 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/update-scores')
       const data = await res.json()
-      setSyncMsg(data.updated > 0
-        ? `Actualizado: ${data.updated} partido(s) sincronizado(s)`
+      const u = data.updated || 0
+      const c = data.created || 0
+      setSyncMsg(u > 0 || c > 0
+        ? `Sincronizado: ${u} actualizado(s)${c > 0 ? `, ${c} nuevo(s)` : ''}`
         : 'Sin cambios — los marcadores ya estan al dia'
       )
       fetchAll()
