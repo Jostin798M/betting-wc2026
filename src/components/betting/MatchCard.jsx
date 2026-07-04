@@ -40,7 +40,7 @@ export default function MatchCard({ match, userBet, onBet }) {
   const canBet = !match.betting_closed
 
   const PHASE_LABELS = {
-    group: `Grupo ${match.group_name}`,
+    group: match.group_name ? `Grupo ${match.group_name}` : 'Fase de grupos',
     round_of_32: 'Ronda de 32',
     round_of_16: 'Octavos de final',
     quarterfinal: 'Cuartos de final',

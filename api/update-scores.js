@@ -38,6 +38,14 @@ function normalizeTeamName(name) {
   return map[name] || name
 }
 
+// Detecta "equipos" que en realidad son slots del bracket aun sin definir,
+// p.ej. "Round of 32 3 Winner", "Winner Group A", "Loser QF1", "TBD".
+// No queremos crear partidos con estos placeholders.
+function isPlaceholderTeam(name) {
+  if (!name || !name.trim()) return true
+  return /\b(winner|loser|runner|tbd)\b|round of \d|to be determined/i.test(name)
+}
+
 // ISO 3166-1 alpha-2 code -> usado por flag-icons (fi fi-xx).
 // Solo se usa como respaldo si el equipo aun no existe en la BD.
 function flagFromEspn(competitor) {
@@ -112,6 +120,9 @@ export default async function handler(req, res) {
       const home = comp.competitors?.find(c => c.homeAway === 'home')
       const away = comp.competitors?.find(c => c.homeAway === 'away')
       if (!home || !away) continue
+
+      // Ignorar fixtures con equipos aun sin definir (slots del bracket).
+      if (isPlaceholderTeam(home.team.displayName) || isPlaceholderTeam(away.team.displayName)) continue
 
       const homeTeam = normalizeTeamName(home.team.displayName)
       const awayTeam = normalizeTeamName(away.team.displayName)
